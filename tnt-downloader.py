@@ -31,6 +31,8 @@ progr_desc = "Cerca e scarica torrent da TNTVillage."
 query_desc = "termine di ricerca"
 more_desc = "mostra 21 risultati per pagina anzi che 7."
 search_url = "http://www.tntvillage.scambioetico.org/src/releaselist.php"
+search_url = "http://localhost:8000"
+
 tot_pag_addr = "//div[@class='pagination']/form/span/b[3]/text()"
 result_table_addr = "//div[@class='showrelease_tb']/table/tr"
 title_addr = "./td[7]/a/text()"
@@ -88,6 +90,34 @@ def str_fit(string, width):
         return string + " " * (width - len(string))
     return string[:(width - 3)] + "..."
 
+def responseHandler(response):
+    # We check that we got a 200, otherwise we should warn the user
+    # returning True would not stop the process, while returning False would stop it.
+    if(response.status_code == 200):
+        # We do not have an error, so no warnings to throw at the user.
+        # Just go on with the process.
+        return True
+    else:
+        print("Status code " + str(response.status_code) + " from TNTVillage Server.")
+        if(response.status_code > 200 and response.status_code < 400):
+            # There was no error, but it's still not a 200
+            print("Unexpected status code") #????
+            return False
+        elif(response.status_code == 400):
+            print("A Bad Request was sent to the server.")
+        elif(response.status_code == 401):
+            print("Authorization is needed.")
+        elif(response.status_code == 403):
+            print("You are not authorized to access this resource.")
+        elif(response.status_code == 404):
+            print("Resource not found.")
+        elif(response.status_code == 504):
+            print("TNTVillage is not responding right now. Retry later.")
+        return False
+
+
+
+
 
 def do_search(search_input, chunks_size):
     # Core function. Searches TNT for the input string, shows the result
@@ -115,7 +145,12 @@ def do_search(search_input, chunks_size):
                     data={"cat": "0",
                           "page": cur_page,
                           "srcrel": search_input})
+
+                if(not responseHandler(result)):
+                    sys.exit(0)
+
                 search_tree = html.fromstring(result.content.decode('utf-8'))
+
 
                 # Total number of pages we got from our search
                 tot_pages = int(search_tree.xpath(tot_pag_addr)[0])
